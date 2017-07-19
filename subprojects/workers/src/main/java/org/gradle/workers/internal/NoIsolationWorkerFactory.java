@@ -22,16 +22,19 @@ import org.gradle.internal.operations.CallableBuildOperation;
 import org.gradle.internal.progress.BuildOperationDescriptor;
 import org.gradle.internal.progress.BuildOperationState;
 import org.gradle.internal.reflect.DirectInstantiator;
+import org.gradle.internal.work.AsyncWorkTracker;
 import org.gradle.internal.work.WorkerLeaseRegistry;
 import org.gradle.workers.IsolationMode;
 
 public class NoIsolationWorkerFactory implements WorkerFactory {
     private final WorkerLeaseRegistry workerLeaseRegistry;
     private final BuildOperationExecutor buildOperationExecutor;
+    private final AsyncWorkTracker workTracker;
 
-    public NoIsolationWorkerFactory(WorkerLeaseRegistry workerLeaseRegistry, BuildOperationExecutor buildOperationExecutor) {
+    public NoIsolationWorkerFactory(WorkerLeaseRegistry workerLeaseRegistry, BuildOperationExecutor buildOperationExecutor, AsyncWorkTracker workTracker) {
         this.workerLeaseRegistry = workerLeaseRegistry;
         this.buildOperationExecutor = buildOperationExecutor;
+        this.workTracker = workTracker;
     }
 
     @Override
@@ -50,7 +53,13 @@ public class NoIsolationWorkerFactory implements WorkerFactory {
                     return buildOperationExecutor.call(new CallableBuildOperation<DefaultWorkResult>() {
                         @Override
                         public DefaultWorkResult call(BuildOperationContext context) {
-                            return DirectInstantiator.INSTANCE.newInstance(workerImplementationClass).execute(spec);
+                            DefaultWorkResult result;
+                            try {
+                                result = DirectInstantiator.INSTANCE.newInstance(workerImplementationClass).execute(spec);
+                            } finally {
+                                workTracker.waitForCompletion(buildOperationExecutor.getCurrentOperation(), false);
+                            }
+                            return result;
                         }
 
                         @Override

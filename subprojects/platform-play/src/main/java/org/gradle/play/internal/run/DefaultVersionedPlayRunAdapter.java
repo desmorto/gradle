@@ -157,28 +157,6 @@ public abstract class DefaultVersionedPlayRunAdapter implements VersionedPlayRun
 
     }
 
-    private static class PendingChanges {
-        private int pendingChanges;
-
-        synchronized void more() {
-            pendingChanges++;
-        }
-
-        synchronized void done() {
-            pendingChanges--;
-
-            if (pendingChanges == 0) {
-                notifyAll();
-            }
-        }
-
-        synchronized void waitForAll() throws InterruptedException {
-            while (pendingChanges > 0) {
-                wait();
-            }
-        }
-    }
-
     @Override
     public Iterable<Dependency> getRunsupportClasspathDependencies(String playVersion, String scalaCompatibilityVersion) {
         return null;
